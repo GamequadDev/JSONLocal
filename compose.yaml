@@ -10,6 +10,8 @@ services:
       - basal-2.0-mini-Q5_K_M.gguf
       - -c
       - "8192"
+      - -np
+      - "1"
       - --host
       - 0.0.0.0
       - --port

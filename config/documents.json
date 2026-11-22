@@ -2,7 +2,7 @@
   "fallback_class": {
     "id": "inny",
     "label": "Dokument spoza zakresu",
-    "description": "Wyrok lub postanowienie wydane przez KIO, decyzja administracyjna, pismo urzędowe, ogłoszenie lub inny dokument spoza pozostałych klas."
+    "description": "Wyrok lub postanowienie wydane przez KIO, decyzja administracyjna, zarządzenie, pismo okólne powołujące zespół lub komisję, pismo urzędowe, ogłoszenie lub inny dokument spoza pozostałych klas."
   },
   "document_types": [
     {
@@ -15,7 +15,7 @@
     {
       "id": "pelnomocnictwo",
       "label": "Pełnomocnictwo",
-      "description": "Pismo, którym mocodawca udziela pełnomocnictwa do reprezentacji (nie decyzja administracyjna ani pismo urzędowe, nawet gdy wskazuje pełnomocnika strony).",
+      "description": "Pismo, którym mocodawca udziela pełnomocnictwa do reprezentacji (nie decyzja administracyjna, pismo okólne, zarządzenie powołujące zespół ani pismo urzędowe, nawet gdy wskazuje pełnomocnika).",
       "builtin_extractor": "pelnomocnictwo",
       "schema": {}
     },
