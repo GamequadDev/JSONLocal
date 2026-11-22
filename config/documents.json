@@ -1,0 +1,30 @@
+{
+  "fallback_class": {
+    "id": "inny",
+    "label": "Dokument spoza zakresu",
+    "description": "Wyrok lub postanowienie wydane przez KIO, decyzja administracyjna, pismo urzędowe, ogłoszenie lub inny dokument spoza pozostałych klas."
+  },
+  "document_types": [
+    {
+      "id": "odwolanie",
+      "label": "Odwołanie do KIO",
+      "description": "Pismo wykonawcy lub jego pełnomocnika, którym wnosi on odwołanie do KIO. Zawiera zarzuty lub żądania wobec zamawiającego.",
+      "builtin_extractor": "odwolanie",
+      "schema": {}
+    },
+    {
+      "id": "pelnomocnictwo",
+      "label": "Pełnomocnictwo",
+      "description": "Pismo, którym mocodawca udziela pełnomocnictwa do reprezentacji (nie decyzja administracyjna ani pismo urzędowe, nawet gdy wskazuje pełnomocnika strony).",
+      "builtin_extractor": "pelnomocnictwo",
+      "schema": {}
+    },
+    {
+      "id": "przelew",
+      "label": "Potwierdzenie przelewu",
+      "description": "Potwierdzenie wykonania przelewu, wydane przez bank lub system płatniczy.",
+      "builtin_extractor": "przelew",
+      "schema": {}
+    }
+  ]
+}

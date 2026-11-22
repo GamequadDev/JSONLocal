@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Odwołania2JSON</title>
+  <style>
+    :root {
+      color: #162722;
+      background: #f4f6f2;
+      font-family: system-ui, -apple-system, sans-serif;
+      --muted: #51645b;
+      --line: #dce5dd;
+      --green: #1c674d;
+      --soft: #e6f2e9;
+      --white: #fff;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; }
+    header { background: #193c30; color: #fff; }
+    .top, main { max-width: 1500px; margin: auto; padding-inline: clamp(16px, 4vw, 56px); }
+    .top { min-height: 60px; display: flex; align-items: center; gap: 11px; font-weight: 720; }
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: #d6efdf;
+      color: #193c30;
+      font: 700 14px ui-monospace, monospace;
+    }
+    main { padding-top: 34px; padding-bottom: 36px; }
+    h1 { margin: 0 0 17px; font-size: clamp(27px, 3.5vw, 39px); letter-spacing: -.035em; }
+    h2 { font-size: 16px; margin: 0; }
+    button, .file-button {
+      appearance: none;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 650;
+      min-height: 40px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      color: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:hover:enabled, .file-button:hover { background: var(--soft); }
+    button:disabled { opacity: .5; cursor: default; }
+    button:focus-visible, a:focus-visible, .file-button:focus-within { outline: 3px solid #449d75; outline-offset: 3px; }
+    .primary { background: var(--green); border-color: var(--green); color: #fff; }
+    .primary:hover:enabled { background: #15533d; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--white);
+    }
+    .toolbar.dragging { border-color: var(--green); background: var(--soft); }
+    .file-button { position: relative; display: inline-flex; align-items: center; }
+    .file-button input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+    .filename { flex: 1 1 180px; font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
+    .status { min-height: 22px; margin: 12px 1px 16px; color: var(--muted); font-size: 14px; }
+    .status[data-error="true"] { color: #a32424; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
+    .panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      height: clamp(480px, 68vh, 960px);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--white);
+    }
+    .panel-head {
+      min-height: 59px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head a { color: var(--green); font-size: 13px; font-weight: 650; }
+    .panel-head button { min-height: 34px; padding: 5px 10px; font-size: 13px; }
+    .viewer { position: relative; flex: 1; background: #e7ede7; overflow: hidden; }
+    iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .scan-preview {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .scan-page {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .scan-page img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      box-shadow: 0 2px 10px rgba(22, 39, 34, .14);
+      background: #fff;
+    }
+    .scan-page figcaption { font-size: 12px; color: var(--muted); }
+    .empty { display: grid; place-content: center; flex: 1; padding: 24px; text-align: center; color: var(--muted); }
+    .viewer .empty { position: absolute; inset: 0; }
+    .empty p { margin: 0; font-size: 14px; }
+    .badge { border-radius: 999px; padding: 4px 9px; background: var(--soft); color: #1d523f; font-size: 12px; font-weight: 650; }
+    .badge-ocr { background: #e7eef6; color: #224a73; }
+    .result { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .switcher { padding: 9px 14px; display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
+    .switcher button { min-height: 32px; padding: 4px 9px; border-color: transparent; font-size: 13px; }
+    .switcher button[aria-pressed="true"] { background: var(--soft); color: #1d523f; }
+    pre {
+      flex: 1;
+      min-height: 0;
+      margin: 0;
+      padding: 16px;
+      overflow: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #f8faf7;
+      color: #1b483b;
+      font: 13px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
+      tab-size: 2;
+    }
+    .trace-view {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      background: #f8faf7;
+      padding: 12px 14px;
+    }
+    .trace-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .trace-table th, .trace-table td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      overflow-wrap: anywhere;
+    }
+    .trace-table th {
+      background: #eef4ef;
+      color: #1d523f;
+      font-weight: 650;
+      position: sticky;
+      top: 0;
+    }
+    .trace-field { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #193c30; }
+    .trace-null { color: var(--muted); font-style: italic; }
+    .trace-snippet { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .trace-pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 650;
+      background: var(--soft);
+      color: #1d523f;
+      white-space: nowrap;
+    }
+    .trace-pill-manual { background: #e0f2fe; color: #075985; }
+    .trace-pill-regex { background: #fef3c7; color: #92400e; }
+    .trace-input {
+      width: 100%;
+      font: inherit;
+      font-size: 12.5px;
+      padding: 4px 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--white);
+      color: inherit;
+    }
+    .trace-input.is-missing { border-color: #eab308; background: #fefce8; }
+    .trace-input:focus { outline: 2px solid #449d75; outline-offset: 1px; border-color: var(--green); }
+    .assign-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: #eef4ef;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .assign-bar select {
+      flex: 1 1 200px;
+      min-height: 32px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--white);
+      font: inherit;
+      font-size: 12.5px;
+      color: inherit;
+    }
+    .assign-bar button { min-height: 32px; padding: 4px 10px; font-size: 12.5px; }
+    .assign-hint { color: var(--muted); font-size: 12px; }
+    .builder {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 16px;
+      background: #f8faf7;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .builder h3 { margin: 0; font-size: 15px; color: #193c30; }
+    .builder-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .builder label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+    .builder input, .builder select, .builder textarea {
+      font: inherit;
+      font-weight: 400;
+      font-size: 13px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--white);
+      color: #162722;
+    }
+    .builder textarea { min-height: 54px; resize: vertical; }
+    .builder-fields { display: flex; flex-direction: column; gap: 8px; }
+    .field-row {
+      display: grid;
+      grid-template-columns: minmax(110px, 1fr) 96px minmax(140px, 1.5fr) 32px;
+      gap: 6px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+    .field-row .remove-btn { min-height: 32px; padding: 0; font-size: 16px; color: #a32424; }
+    .field-preview { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+    .field-preview.matched { color: var(--green); font-weight: 600; }
+    .field-preview.invalid { color: #a32424; }
+    .builder-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 4px; }
+    .empty-actions { margin-top: 14px; }
+    @media (max-width: 760px) {
+      .workspace { grid-template-columns: 1fr; }
+      .panel { height: 65vh; }
+      .panel:last-child { height: 480px; }
+      main { padding-top: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <header><div class="top"><span class="mark" aria-hidden="true">{ }</span>Odwołania2JSON</div></header>
+  <main>
+    <h1>Analiza dokumentu (PDF lub skan)</h1>
+    <div class="toolbar" id="upload">
+      <label class="file-button">Wybierz PDF lub skan<input id="file" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,application/pdf,image/png,image/jpeg,image/webp,image/tiff,image/bmp"></label>
+      <span class="filename" id="filename">Możesz przeciągnąć plik PDF albo jeden lub kilka skanów (PNG, JPG, WebP, TIFF)</span>
+      <button type="button" class="primary" id="analyze" disabled>Uruchom analizę</button>
+      <button type="button" id="analyze-folder">Analizuj folder input/</button>
+      <button type="button" id="reset-config">Przywróć ustawienia domyślne</button>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <details id="batch-errors" hidden><summary>Błędy analizy folderu</summary><ul id="batch-error-list"></ul></details>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="source-title">
+        <div class="panel-head">
+          <h2 id="source-title">Dokument źródłowy</h2>
+          <a id="open" target="_blank" rel="noopener" hidden>Otwórz w nowej karcie</a>
+        </div>
+        <div class="viewer">
+          <div class="empty" id="pdf-empty"><p>Podgląd pojawi się po wybraniu PDF-a lub skanu.</p></div>
+          <iframe id="preview" title="Podgląd dokumentu PDF" hidden></iframe>
+          <div class="scan-preview" id="scan-preview" hidden></div>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="result-title">
+        <div class="panel-head">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+            <h2 id="result-title">Wynik analizy</h2>
+            <span class="badge" id="category" hidden></span>
+            <span class="badge badge-ocr" id="ocr-badge" hidden>RapidOCR</span>
+          </div>
+          <button type="button" id="download" disabled>Pobierz JSON</button>
+        </div>
+        <div class="empty" id="result-empty"><p>Uruchom analizę, aby zobaczyć wynik.</p></div>
+        <div class="result" id="result" hidden>
+          <div class="switcher" aria-label="Widok wyniku" role="group">
+            <button type="button" id="json-tab" aria-pressed="true">JSON</button>
+            <button type="button" id="trace-tab" aria-pressed="false">Edytor i ślad</button>
+            <button type="button" id="text-tab" aria-pressed="false">Odczytany tekst</button>
+          </div>
+          <div class="assign-bar" id="assign-bar" hidden>
+            <span class="assign-hint" id="assign-preview">Zaznacz fragment tekstu poniżej, aby przypisać go do pola:</span>
+            <select id="assign-field" aria-label="Docelowe pole JSON"></select>
+            <button type="button" class="primary" id="assign-btn" disabled>Przypisz do pola</button>
+          </div>
+          <div class="empty" id="empty-json" hidden>
+            <div>
+              <p>Dokument spoza zakresu. Plik wynikowy zawiera <code>{}</code>.</p>
+              <div class="empty-actions">
+                <button type="button" class="primary" id="open-builder">+ Utwórz własny szablon</button>
+              </div>
+            </div>
+          </div>
+          <form class="builder" id="template-builder" hidden>
+            <h3>Nowy szablon dokumentu (zapis do documents.json)</h3>
+            <div class="builder-grid">
+              <label>Nazwa typu dokumentu<input type="text" id="tpl-label" placeholder="np. Przystąpienie do postępowania" required></label>
+              <label>ID typu (a-z, 0-9, _)<input type="text" id="tpl-id" placeholder="np. przystapienie" required></label>
+            </div>
+            <div class="builder-grid">
+              <label>Sekcja główna w JSON<input type="text" id="tpl-root" placeholder="np. PrzystapienieKIO" required></label>
+              <label>Opis dla klasyfikatora<input type="text" id="tpl-desc" placeholder="Krótki opis, po czym rozpoznać ten dokument" required></label>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <strong style="font-size: 13px; color: #193c30;">Pola szablonu</strong>
+              <button type="button" id="add-field">+ Dodaj pole</button>
+            </div>
+            <div class="builder-fields" id="tpl-fields"></div>
+            <div class="builder-actions">
+              <button type="submit" class="primary" id="save-tpl">Zapisz szablon i zastosuj</button>
+              <button type="button" id="cancel-tpl">Anuluj</button>
+            </div>
+          </form>
+          <pre id="content" aria-label="Treść wyniku" tabindex="0"></pre>
+          <div class="trace-view" id="trace-view" hidden></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const elements = Object.fromEntries(
+      [...document.querySelectorAll("[id]")].map(element => [element.id, element])
+    );
+    const labels = {
+      odwolanie: "Odwołanie do KIO",
+      pelnomocnictwo: "Pełnomocnictwo",
+      przelew: "Potwierdzenie przelewu",
+      inny: "Dokument spoza zakresu"
+    };
+    const methodLabels = {
+      builtin: "Reguła wbudowana",
+      config_regex: "Regex (documents.json)",
+      manual: "Poprawiono ręcznie"
+    };
+    function applyConfig(config) {
+      for (const id of Object.keys(labels)) delete labels[id];
+      for (const item of config.document_types) labels[item.id] = item.label || item.id;
+    }
+    fetch("/api/config")
+      .then(res => (res.ok ? res.json() : null))
+      .then(cfg => {
+        if (!cfg?.document_types) return;
+        applyConfig(cfg);
+      })
+      .catch(() => {});
+    const IMAGE_EXT_RE = /\.(png|jpe?g|webp|tiff?|bmp)$/i;
+    const IMAGE_MIME_TYPES = new Set([
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/tiff",
+      "image/bmp"
+    ]);
+    const MAX_BYTES = 25 * 1024 * 1024;
+
+    let selectedFiles = [];
+    let previewUrls = [];
+    let response;
+    let parsedJson;
+    let selectedSnippet = "";
+    let activeRequest;
+
+    function parseFieldPath(path) {
+      const tokens = [];
+      for (const match of path.matchAll(/([^.\[\]]+)|\[(\d+)\]/g)) {
+        tokens.push(match[2] !== undefined ? Number(match[2]) : match[1]);
+      }
+      return tokens;
+    }
+
+    function coerceEditedValue(raw, fieldType) {
+      const trimmed = raw.trim();
+      if (trimmed === "" || trimmed.toLowerCase() === "null") return null;
+      if (fieldType === "number" || fieldType === "integer") {
+        const num = Number(trimmed.replace(/\s+/g, "").replace(",", "."));
+        if (Number.isFinite(num) && (fieldType !== "integer" || Number.isSafeInteger(num))) return num;
+        throw new Error(fieldType === "integer" ? "Wpisz liczbę całkowitą." : "Wpisz poprawną kwotę.");
+      }
+      if (fieldType === "boolean") {
+        if (trimmed === "true" || trimmed === "1") return true;
+        if (trimmed === "false" || trimmed === "0") return false;
+        throw new Error("Wpisz true lub false.");
+      }
+      return trimmed;
+    }
+
+    function updateFieldValue(path, rawValue, sourceSnippet = null) {
+      if (!parsedJson || !response) return;
+      const entry = (response.trace || []).find(item => item.field === path);
+      let coerced;
+      try {
+        coerced = coerceEditedValue(rawValue, entry?.field_type ?? typeof entry?.value);
+      } catch (error) {
+        setStatus(error.message, true);
+        return false;
+      }
+      const tokens = parseFieldPath(path);
+      let cursor = parsedJson;
+      for (let i = 0; i < tokens.length - 1; i++) {
+        if (cursor == null || !(tokens[i] in cursor)) return;
+        cursor = cursor[tokens[i]];
+      }
+      cursor[tokens[tokens.length - 1]] = coerced;
+      response.json = JSON.stringify(parsedJson, null, 2) + "\n";
+      if (entry) {
+        entry.value = coerced;
+        entry.method = "manual";
+        entry.snippet = sourceSnippet;
+        entry.snippet_inferred = false;
+      }
+      return true;
+    }
+
+    function populateAssignFields() {
+      const select = elements["assign-field"];
+      select.replaceChildren();
+      for (const entry of (response?.trace || [])) {
+        if (Array.isArray(entry.value)) continue;
+        const opt = document.createElement("option");
+        opt.value = entry.field;
+        opt.textContent = entry.value === null ? `${entry.field} (brak)` : entry.field;
+        select.append(opt);
+      }
+    }
+
+    function isPdf(file) {
+      return /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+    }
+
+    function isImage(file) {
+      return IMAGE_EXT_RE.test(file.name) || IMAGE_MIME_TYPES.has(file.type);
+    }
+
+    function revokePreviews() {
+      for (const url of previewUrls) URL.revokeObjectURL(url);
+      previewUrls = [];
+    }
+
+    function setStatus(message, error = false) {
+      elements.status.textContent = message;
+      elements.status.dataset.error = String(error);
+    }
+
+    function renderTrace(trace) {
+      const container = elements["trace-view"];
+      container.replaceChildren();
+      if (!trace || !trace.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        const p = document.createElement("p");
+        p.textContent = "Brak pól ekstrakcji dla tego dokumentu.";
+        empty.append(p);
+        container.append(empty);
+        return;
+      }
+      const table = document.createElement("table");
+      table.className = "trace-table";
+      const thead = document.createElement("thead");
+      const hrow = document.createElement("tr");
+      for (const title of ["Pole", "Wartość", "Metoda i źródło", "Fragment źródłowy"]) {
+        const th = document.createElement("th");
+        th.textContent = title;
+        hrow.append(th);
+      }
+      thead.append(hrow);
+      const tbody = document.createElement("tbody");
+      for (const entry of trace) {
+        const tr = document.createElement("tr");
+        const tdField = document.createElement("td");
+        tdField.className = "trace-field";
+        tdField.textContent = entry.field;
+
+        const tdVal = document.createElement("td");
+        if (Array.isArray(entry.value) && entry.value.length === 0) {
+          tdVal.className = "trace-null";
+          tdVal.textContent = "[]";
+        } else {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "trace-input" + (entry.value === null ? " is-missing" : "");
+          input.value = entry.value === null ? "" : String(entry.value);
+          input.placeholder = "Do uzupełnienia (null)";
+          input.setAttribute("aria-label", `Wartość pola ${entry.field}`);
+          input.addEventListener("change", () => {
+            if (!updateFieldValue(entry.field, input.value)) {
+              input.value = entry.value ?? "";
+              return;
+            }
+            tdSnip.textContent = "—";
+            input.classList.toggle("is-missing", entry.value === null);
+            pill.className = "trace-pill trace-pill-manual";
+            pill.textContent = methodLabels.manual;
+            setStatus(`Zaktualizowano pole ${entry.field}.`);
+          });
+          tdVal.append(input);
+        }
+
+        const tdMethod = document.createElement("td");
+        const pill = document.createElement("span");
+        pill.className = "trace-pill" + (entry.method === "manual" ? " trace-pill-manual" : entry.method === "config_regex" ? " trace-pill-regex" : "");
+        pill.textContent = methodLabels[entry.method] || entry.method;
+        const src = document.createElement("div");
+        src.className = "trace-snippet";
+        src.textContent = entry.source || "";
+        tdMethod.append(pill, src);
+
+        const tdSnip = document.createElement("td");
+        tdSnip.className = "trace-snippet";
+        tdSnip.textContent = entry.snippet_inferred && entry.snippet
+          ? `Dopasowanie wartości: ${entry.snippet}` : entry.snippet || "—";
+
+        tr.append(tdField, tdVal, tdMethod, tdSnip);
+        tbody.append(tr);
+      }
+      table.append(thead, tbody);
+      container.append(table);
+    }
+
+    let builderOpen = false;
+
+    function slugifyPolish(text) {
+      return text
+        .toLowerCase()
+        .replace(/ł/g, "l")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .replace(/^[^a-z]+/, "")
+        .slice(0, 40);
+    }
+
+    function toPascalCase(text) {
+      return slugifyPolish(text)
+        .split("_")
+        .filter(Boolean)
+        .map(p => p[0].toUpperCase() + p.slice(1))
+        .join("") || "Dokument";
+    }
+
+    function addFieldRow(initial = {}) {
+      const row = document.createElement("div");
+      row.className = "field-row";
+
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.placeholder = "nazwa_pola";
+      nameInput.value = initial.name || "";
+      nameInput.required = true;
+
+      const typeSelect = document.createElement("select");
+      for (const [val, label] of [["string", "tekst"], ["date", "data"], ["number", "kwota"], ["integer", "liczba"], ["digits", "cyfry"]]) {
+        const opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = label;
+        if (val === (initial.type || "string")) opt.selected = true;
+        typeSelect.append(opt);
+      }
+
+      const regexInput = document.createElement("input");
+      regexInput.type = "text";
+      regexInput.placeholder = "Regex (opcjonalny, grupa 1)";
+      regexInput.value = initial.regex || "";
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "remove-btn";
+      removeBtn.textContent = "×";
+      removeBtn.title = "Usuń pole";
+      removeBtn.addEventListener("click", () => row.remove());
+
+      const preview = document.createElement("div");
+      preview.className = "field-preview";
+
+      function updatePreview() {
+        const pat = regexInput.value.trim();
+        if (!pat) {
+          preview.className = "field-preview";
+          preview.textContent = "Bez regexu — pole będzie gotowe do ręcznego uzupełnienia w edytorze.";
+          return;
+        }
+        try {
+          const rx = new RegExp(pat, "im");
+          const m = (response?.text || "").match(rx);
+          if (m) {
+            const val = (m[1] !== undefined ? m[1] : m[0]).replace(/\s+/g, " ").trim();
+            preview.className = "field-preview matched";
+            preview.textContent = `Podgląd dopasowania: „${val.slice(0, 120)}”`;
+          } else {
+            preview.className = "field-preview";
+            preview.textContent = "Brak dopasowania w bieżącym dokumencie (można uzupełnić ręcznie).";
+          }
+        } catch (err) {
+          preview.className = "field-preview invalid";
+          preview.textContent = `Błędny regex: ${err.message}`;
+        }
+      }
+      regexInput.addEventListener("input", updatePreview);
+      updatePreview();
+
+      row.append(nameInput, typeSelect, regexInput, removeBtn, preview);
+      elements["tpl-fields"].append(row);
+    }
+
+    function openBuilder() {
+      builderOpen = true;
+      elements["tpl-label"].value = "";
+      elements["tpl-id"].value = "";
+      elements["tpl-root"].value = "";
+      elements["tpl-desc"].value = "";
+      elements["tpl-fields"].replaceChildren();
+      addFieldRow({ name: "data", type: "date" });
+      addFieldRow({ name: "numer", type: "string" });
+      elements["empty-json"].hidden = true;
+      elements["template-builder"].hidden = false;
+      elements["tpl-label"].focus();
+    }
+
+    function closeBuilder() {
+      builderOpen = false;
+      elements["template-builder"].hidden = true;
+      showResult("json");
+    }
+
+    function showResult(view) {
+      const jsonView = view === "json";
+      const traceView = view === "trace";
+      const textView = view === "text";
+      const hasFields = parsedJson && Object.keys(parsedJson).length > 0;
+      const empty = jsonView && !hasFields;
+      elements["json-tab"].setAttribute("aria-pressed", String(jsonView));
+      elements["trace-tab"].setAttribute("aria-pressed", String(traceView));
+      elements["text-tab"].setAttribute("aria-pressed", String(textView));
+      elements["template-builder"].hidden = !(jsonView && builderOpen && empty);
+      elements["empty-json"].hidden = !(empty && !builderOpen);
+      elements["assign-bar"].hidden = !textView || !hasFields;
+      elements.content.hidden = empty || traceView;
+      elements["trace-view"].hidden = !traceView;
+      if (traceView) {
+        renderTrace(response.trace);
+        elements["trace-view"].scrollTop = 0;
+      } else {
+        elements.content.textContent = empty ? "" : jsonView ? JSON.stringify(JSON.parse(response.json), null, 2) : response.text;
+        elements.content.scrollTop = 0;
+      }
+    }
+
+    function selectFiles(fileList) {
+      const files = [...(fileList || [])];
+      if (!files.length) return;
+
+      const allPdf = files.every(isPdf);
+      const allImages = files.every(isImage);
+      if (!allPdf && !allImages) {
+        setStatus("Wybierz jeden plik PDF albo jeden lub kilka skanów (PNG, JPG, WebP, TIFF, BMP).", true);
+        return;
+      }
+      if (allPdf && files.length > 1) {
+        setStatus("Dla formatu PDF wybierz jeden plik naraz.", true);
+        return;
+      }
+
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+      if (files.some(file => file.size === 0) || totalSize > MAX_BYTES) {
+        setStatus("Wybierz niepuste pliki o łącznym rozmiarze do 25 MB.", true);
+        return;
+      }
+
+      activeRequest?.abort();
+      activeRequest = undefined;
+      selectedFiles = files;
+      response = undefined;
+      revokePreviews();
+      elements["scan-preview"].replaceChildren();
+
+      if (allPdf) {
+        const url = URL.createObjectURL(new Blob([files[0]], { type: "application/pdf" }));
+        previewUrls.push(url);
+        elements.preview.src = url;
+        elements.open.href = url;
+        elements.open.textContent = "Otwórz PDF w nowej karcie";
+        elements.preview.hidden = false;
+        elements["scan-preview"].hidden = true;
+        elements.open.hidden = false;
+        elements.filename.textContent = files[0].name;
+      } else {
+        elements.preview.hidden = true;
+        elements.preview.removeAttribute("src");
+        elements["scan-preview"].hidden = false;
+        files.forEach((file, index) => {
+          const url = URL.createObjectURL(file);
+          previewUrls.push(url);
+          const figure = document.createElement("figure");
+          figure.className = "scan-page";
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = `Skan ${index + 1}: ${file.name}`;
+          img.addEventListener("error", () => {
+            img.remove();
+            const fallback = document.createElement("p");
+            fallback.textContent = `Brak podglądu w przeglądarce dla pliku ${file.name} — plik zostanie odczytany przez OCR.`;
+            figure.prepend(fallback);
+          });
+          figure.append(img);
+          if (files.length > 1) {
+            const caption = document.createElement("figcaption");
+            caption.textContent = `Strona ${index + 1}: ${file.name}`;
+            figure.append(caption);
+          }
+          elements["scan-preview"].append(figure);
+        });
+        if (files.length === 1) {
+          elements.open.href = previewUrls[0];
+          elements.open.textContent = "Otwórz skan w nowej karcie";
+          elements.open.hidden = false;
+          elements.filename.textContent = files[0].name;
+        } else {
+          elements.open.hidden = true;
+          elements.filename.textContent = `${files.length} skany: ${files.map(f => f.name).join(", ")}`;
+        }
+      }
+
+      elements["pdf-empty"].hidden = true;
+      elements.result.hidden = true;
+      elements["result-empty"].hidden = false;
+      elements.category.hidden = true;
+      elements["ocr-badge"].hidden = true;
+      elements.download.disabled = true;
+      elements.analyze.disabled = false;
+      elements.analyze.textContent = "Uruchom analizę";
+      setStatus("");
+    }
+
+    async function analyze() {
+      const request = new AbortController();
+      activeRequest = request;
+      elements.analyze.disabled = true;
+      elements.analyze.textContent = "Analizuję…";
+      setStatus(selectedFiles.every(isImage) ? "Trwa rozpoznawanie tekstu (RapidOCR) i klasyfikacja." : "Trwa odczyt dokumentu i klasyfikacja.");
+      try {
+        let fetchOptions;
+        if (selectedFiles.length === 1 && isPdf(selectedFiles[0])) {
+          fetchOptions = {
+            method: "POST",
+            headers: { "Content-Type": "application/pdf" },
+            body: selectedFiles[0],
+            signal: request.signal
+          };
+        } else if (selectedFiles.length === 1 && IMAGE_MIME_TYPES.has(selectedFiles[0].type)) {
+          fetchOptions = {
+            method: "POST",
+            headers: { "Content-Type": selectedFiles[0].type },
+            body: selectedFiles[0],
+            signal: request.signal
+          };
+        } else {
+          const form = new FormData();
+          for (const file of selectedFiles) form.append("files", file, file.name);
+          fetchOptions = {
+            method: "POST",
+            body: form,
+            signal: request.signal
+          };
+        }
+        const result = await fetch("/api/analyze", fetchOptions);
+        const data = await result.json();
+        if (activeRequest !== request) return;
+        if (!result.ok) throw new Error(data.error);
+        response = data;
+        builderOpen = false;
+        parsedJson = data.json ? JSON.parse(data.json) : null;
+        selectedSnippet = "";
+        elements["assign-btn"].disabled = true;
+        populateAssignFields();
+        elements.category.textContent = labels[data.type] || data.type;
+        elements.category.hidden = false;
+        elements["ocr-badge"].hidden = !data.ocr;
+        elements["result-empty"].hidden = true;
+        elements.result.hidden = false;
+        elements.download.disabled = false;
+        showResult("json");
+        setStatus(data.ocr ? "Analiza zakończona (użyto RapidOCR)." : "Analiza zakończona.");
+      } catch (error) {
+        if (activeRequest === request) setStatus(error instanceof TypeError ? "Utracono połączenie z aplikacją." : error.message, true);
+      } finally {
+        if (activeRequest === request) {
+          activeRequest = undefined;
+          elements.analyze.disabled = false;
+          elements.analyze.textContent = "Uruchom analizę";
+        }
+      }
+    }
+
+    elements.file.addEventListener("change", () => {
+      selectFiles(elements.file.files);
+      elements.file.value = "";
+    });
+    elements.upload.addEventListener("dragover", event => {
+      event.preventDefault();
+      elements.upload.classList.add("dragging");
+    });
+    elements.upload.addEventListener("dragleave", event => {
+      if (!elements.upload.contains(event.relatedTarget)) elements.upload.classList.remove("dragging");
+    });
+    elements.upload.addEventListener("drop", event => {
+      event.preventDefault();
+      elements.upload.classList.remove("dragging");
+      selectFiles(event.dataTransfer.files);
+    });
+    elements["analyze-folder"].addEventListener("click", async () => {
+      const button = elements["analyze-folder"];
+      button.disabled = true;
+      elements["batch-errors"].hidden = true;
+      elements["batch-error-list"].replaceChildren();
+      button.textContent = "Analizuję folder…";
+      setStatus("Trwa analiza PDF-ów z input/. Wyniki są zapisywane w output/.");
+      try {
+        const result = await fetch("/api/analyze-folder", {
+          method: "POST", headers: {"Content-Type": "application/json"}
+        });
+        const data = await result.json();
+        if (!result.ok) throw new Error(data.error);
+        for (const error of data.errors) {
+          const item = document.createElement("li");
+          item.textContent = `${error.file} — ${error.error}`;
+          elements["batch-error-list"].append(item);
+        }
+        elements["batch-errors"].hidden = data.errors.length === 0;
+        setStatus(`Pliki zapisane w output/: ${data.saved}. Błędy: ${data.errors.length}.`, data.errors.length > 0);
+      } catch (error) {
+        setStatus(error.message || "Nie udało się przetworzyć folderu.", true);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Analizuj folder input/";
+      }
+    });
+    elements["reset-config"].addEventListener("click", async () => {
+      const button = elements["reset-config"];
+      button.disabled = true;
+      try {
+        const current = await fetch("/api/config");
+        let warning = "Wszystkie własne szablony zostaną usunięte.";
+        if (current.ok) {
+          const config = await current.json();
+          const count = config.document_types.filter(item => !item.builtin && !item.fallback).length;
+          warning = `Liczba własnych szablonów do usunięcia: ${count}.`;
+        }
+        if (!window.confirm(`Przywrócić domyślne typy dokumentów i ich reguły? ${warning}`)) return;
+        const result = await fetch("/api/config/reset", {
+          method: "POST", headers: {"X-Confirm-Reset": "yes"}
+        });
+        const config = await result.json();
+        if (!result.ok) throw new Error(config.error);
+        applyConfig(config);
+        setStatus("Przywrócono domyślne typy dokumentów. Kolejna analiza użyje tych ustawień.");
+      } catch (error) {
+        setStatus(error.message || "Nie udało się przywrócić ustawień.", true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    elements.analyze.addEventListener("click", analyze);
+    elements["open-builder"].addEventListener("click", openBuilder);
+    elements["cancel-tpl"].addEventListener("click", closeBuilder);
+    elements["add-field"].addEventListener("click", () => addFieldRow());
+    elements["tpl-label"].addEventListener("input", () => {
+      const label = elements["tpl-label"].value;
+      elements["tpl-id"].value = slugifyPolish(label);
+      elements["tpl-root"].value = toPascalCase(label);
+    });
+    elements["template-builder"].addEventListener("submit", async event => {
+      event.preventDefault();
+      const rows = [...elements["tpl-fields"].querySelectorAll(".field-row")];
+      if (!rows.length) {
+        setStatus("Dodaj co najmniej jedno pole do szablonu.", true);
+        return;
+      }
+      const rootName = elements["tpl-root"].value.trim();
+      const fields = {};
+      for (const row of rows) {
+        const [nameEl, typeEl, regexEl] = row.querySelectorAll("input, select");
+        const fieldName = nameEl.value.trim();
+        if (!fieldName) continue;
+        const spec = { type: typeEl.value };
+        if (regexEl.value.trim()) spec.regex = regexEl.value.trim();
+        fields[fieldName] = spec;
+      }
+      const payload = {
+        id: elements["tpl-id"].value.trim(),
+        label: elements["tpl-label"].value.trim(),
+        description: elements["tpl-desc"].value.trim(),
+        schema: { [rootName]: fields },
+        text: response?.text || "",
+        ocr: Boolean(response?.ocr)
+      };
+      elements["save-tpl"].disabled = true;
+      try {
+        const res = await fetch("/api/types", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (data.config?.document_types) {
+          applyConfig(data.config);
+        }
+        builderOpen = false;
+        response.type = data.type;
+        response.json = data.json || "";
+        response.trace = data.trace || [];
+        parsedJson = response.json ? JSON.parse(response.json) : null;
+        populateAssignFields();
+        elements.category.textContent = labels[data.type] || data.type;
+        elements.download.disabled = !response.json;
+        showResult("trace");
+        setStatus(`Zapisano szablon „${labels[data.type]}” w documents.json i zastosowano do dokumentu.`);
+      } catch (err) {
+        setStatus(err.message || "Nie udało się zapisać szablonu.", true);
+      } finally {
+        elements["save-tpl"].disabled = false;
+      }
+    });
+    elements["json-tab"].addEventListener("click", () => showResult("json"));
+    elements["trace-tab"].addEventListener("click", () => showResult("trace"));
+    elements["text-tab"].addEventListener("click", () => showResult("text"));
+    function captureSelection() {
+      if (elements["text-tab"].getAttribute("aria-pressed") !== "true") return;
+      const sel = window.getSelection()?.toString().trim() || "";
+      selectedSnippet = sel;
+      elements["assign-btn"].disabled = !sel || !elements["assign-field"].value;
+      elements["assign-preview"].textContent = sel
+        ? `Zaznaczono: „${sel.length > 60 ? sel.slice(0, 60) + "…" : sel}”`
+        : "Zaznacz fragment tekstu poniżej, aby przypisać go do pola:";
+    }
+    elements.content.addEventListener("mouseup", captureSelection);
+    elements.content.addEventListener("keyup", captureSelection);
+    elements["assign-btn"].addEventListener("click", () => {
+      const field = elements["assign-field"].value;
+      if (!field || !selectedSnippet) return;
+      if (!updateFieldValue(field, selectedSnippet, selectedSnippet)) return;
+      populateAssignFields();
+      elements["assign-field"].value = field;
+      setStatus(`Przypisano zaznaczony tekst do pola ${field}.`);
+      selectedSnippet = "";
+      elements["assign-btn"].disabled = true;
+      elements["assign-preview"].textContent = "Zaznacz fragment tekstu poniżej, aby przypisać go do pola:";
+    });
+    elements.download.addEventListener("click", () => {
+      const url = URL.createObjectURL(new Blob([response.json], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = selectedFiles[0].name.replace(/\.(pdf|png|jpe?g|webp|tiff?|bmp)$/i, "") + ".json";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  </script>
+</body>
+</html>

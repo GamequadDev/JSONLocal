@@ -1,0 +1,78 @@
+name: odwolania2json
+
+services:
+  basal:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command:
+      - -hfr
+      - Remek/basal-2.0-mini-GGUF
+      - -hff
+      - basal-2.0-mini-Q5_K_M.gguf
+      - -c
+      - "8192"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    volumes:
+      - llama-cache:/root/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+
+  klasyfikacja:
+    build: &app_build
+      context: .
+      dockerfile_inline: |
+        FROM python:3.13-slim
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends poppler-utils hunspell-pl \
+            && rm -rf /var/lib/apt/lists/*
+        WORKDIR /app
+        COPY requirements.txt ./
+        RUN pip install --no-cache-dir -r requirements.txt
+        COPY ocr.py ./
+        RUN python -c "import ocr; ocr.warmup()"
+        COPY extraction.py config_loader.py documents.default.json classify_documents.py web.py index.html ./
+        COPY config/documents.json ./config/documents.json
+    depends_on: &basal_depends
+      basal:
+        condition: service_healthy
+    environment:
+      INPUT_DIR: /input
+      OUTPUT_DIR: /output
+      DOCUMENTS_CONFIG: /app/config/documents.json
+      DOKUMENT: ${DOKUMENT:-}
+      BASAL_URL: ${BASAL_URL:-http://basal:8080/v1}
+      BASAL_MODEL: ${BASAL_MODEL:-Remek/basal-2.0-mini-GGUF:Q5_K_M}
+      BASAL_API_KEY: ${BASAL_API_KEY:-}
+    volumes:
+      - "${INPUT_DIR:-./input}:/input:ro"
+      - "${OUTPUT_DIR:-./output}:/output"
+      - "./config:/app/config:ro"
+    command: ["python", "-u", "classify_documents.py"]
+
+  gui:
+    profiles: ["gui"]
+    build: *app_build
+    depends_on: *basal_depends
+    environment:
+      INPUT_DIR: /input
+      OUTPUT_DIR: /output
+      DOCUMENTS_CONFIG: /app/config/documents.json
+      BASAL_URL: ${BASAL_URL:-http://basal:8080/v1}
+      BASAL_MODEL: ${BASAL_MODEL:-Remek/basal-2.0-mini-GGUF:Q5_K_M}
+      BASAL_API_KEY: ${BASAL_API_KEY:-}
+    volumes:
+      - "${INPUT_DIR:-./input}:/input:ro"
+      - "${OUTPUT_DIR:-./output}:/output"
+      - "./config:/app/config"
+    ports:
+      - "127.0.0.1:8080:8080"
+    command: ["python", "-u", "web.py"]
+
+volumes:
+  llama-cache:
